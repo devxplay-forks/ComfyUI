@@ -103,6 +103,7 @@ if (-not (Test-Path (Join-Path $VenvDir "pyvenv.cfg"))) {
 $VenvScripts = Join-Path $VenvDir "Scripts"
 $env:VIRTUAL_ENV = $VenvDir
 $env:PATH = "$VenvScripts;$env:PATH"
+$env:UV_LINK_MODE = "copy"
 $VenvPython = Join-Path $VenvScripts "python.exe"
 
 # ─── 5. Install / sync PyTorch (GPU auto-detect) ────────────────────────
@@ -175,6 +176,13 @@ if ($enablePreview) {
 }
 if ($ExtraArgs.Count -gt 0) {
     $launchArgs += $ExtraArgs
+}
+
+$portNum = [int]$Port
+$portBusy = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners() |
+    Where-Object { $_.Port -eq $portNum } | Select-Object -First 1
+if ($portBusy) {
+    Fail "Port $Port is already in use (another ComfyUI instance may be running). Stop it first or pass -Port."
 }
 
 # ─── 8. Launch ───────────────────────────────────────────────────────────
