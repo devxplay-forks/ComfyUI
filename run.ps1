@@ -182,7 +182,32 @@ $portNum = [int]$Port
 $portBusy = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners() |
     Where-Object { $_.Port -eq $portNum } | Select-Object -First 1
 if ($portBusy) {
-    Fail "Port $Port is already in use (another ComfyUI instance may be running). Stop it first or pass -Port."
+    $pids = @(
+        netstat -ano -p TCP 2>$null | ForEach-Object {
+            if ($_ -match "^\s*TCP\s+\S+:$portNum\s+\S+\s+LISTENING\s+(\d+)\s*$") {
+                [int]$Matches[1]
+            }
+        } | Where-Object { $_ -gt 0 -and $_ -ne $PID } | Select-Object -Unique
+    )
+    if ($pids.Count -gt 0) {
+        Warn "Port $Port is in use (PID $($pids -join ', ')) - stopping existing process..."
+        foreach ($targetPid in $pids) {
+            Invoke-Quiet { taskkill /F /T /PID $targetPid } | Out-Null
+            Stop-Process -Id $targetPid -Force -ErrorAction SilentlyContinue
+        }
+        for ($i = 0; $i -lt 20; $i++) {
+            Start-Sleep -Milliseconds 250
+            $stillBusy = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners() |
+                Where-Object { $_.Port -eq $portNum } | Select-Object -First 1
+            if (-not $stillBusy) { break }
+        }
+        Start-Sleep -Milliseconds 300
+    }
+    $stillBusy = [System.Net.NetworkInformation.IPGlobalProperties]::GetIPGlobalProperties().GetActiveTcpListeners() |
+        Where-Object { $_.Port -eq $portNum } | Select-Object -First 1
+    if ($stillBusy) {
+        Fail "Port $Port is still in use and could not be freed."
+    }
 }
 
 # ─── 8. Launch ───────────────────────────────────────────────────────────
