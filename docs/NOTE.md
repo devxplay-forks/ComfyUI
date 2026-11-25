@@ -39,9 +39,9 @@ Maintained working knowledge for this machine (`C:\Users\payne\github\devxplay-f
 - **Standard Service first:** Run ComfyUI normally on `0.0.0.0:8188`. Browser (MacMini over Tailscale `http://100.70.219.30:8188`), direct REST/WS scripts, and MCP all talk to the same server.
 - **Pi Built-in MCP (`~/dotfiles/pi/agent/mcp.json` → `~/.pi/agent/mcp.json`):**
   - Pi has native built-in MCP (no adapter package needed). Because `~/.pi/agent/settings.json` sets `"defaultTools": ["-codemode"]`, MCP servers in `mcp.json` must use `"exposure": "deferred"` (via `tool_search`) or `"exposure": "direct"`.
-  - **Chosen for shared Tailscale config (`artokun/comfyui-mcp` via `npx -y comfyui-mcp`):** Pure REST + WebSocket against `COMFYUI_URL=http://100.70.219.30:8188`. Works identically from MacMini and Windows with one shared `mcp.json` (remote `/object_info`, graph build/validate, `enqueue_workflow`, `clear_vram` `/free`, `diagnose` + logs, `list_outputs`). Note: uses `better-sqlite3` + `sharp`, so invoke via `npx` (Node 26.13), not `bunx`.
+  - **Chosen for shared Tailscale config (`artokun/comfyui-mcp` via `bunx comfyui-mcp`):** Pure REST + WebSocket against `COMFYUI_URL=http://100.70.219.30:8188`. Works identically from MacMini and Windows with one shared `mcp.json` (remote `/object_info`, graph build/validate, `enqueue_workflow`, `clear_vram` `/free`, `diagnose` + logs, `list_outputs`). Verified on Windows: `bunx` caches/resolves (`0.64s` warm) and runs `dist/index.js` under Node `26.13` so `better-sqlite3` and `sharp` load cleanly (on a new machine like MacMini, run `bunx comfyui-mcp --version` once to warm the cache).
   - **Why official `Comfy-Org/comfy-mcp` (`uvx`) was not chosen for shared Tailscale config:** It wraps `comfy-cli` (`comfy --where local`). With `COMFYUI_URL`, only submit/status/upload/fetch hit the remote host; `nodes`, `validate_workflow`, and `get_logs` still resolve local-only (failing on MacMini), and `download_model` refuses remotely.
-  - **Optional upgrade:** Running `npx -y comfyui-mcp --http --host 100.70.219.30 --port 9100` on Windows would let MacMini access local Windows `D:\models` / `restart_comfyui` over HTTP if needed later.
+  - **Optional upgrade:** Running `bunx comfyui-mcp --http --host 100.70.219.30 --port 9100` on Windows would let MacMini access local Windows `D:\models` / `restart_comfyui` over HTTP if needed later.
 - **In-app agent (`--enable-agent`):** Experimental ComfyUI flag mounting `/api/agent` (requires unbundled `comfy-agent` wheel).
 
 ---
@@ -84,10 +84,10 @@ Maintained working knowledge for this machine (`C:\Users\payne\github\devxplay-f
 1. **Cleanup staged files:** `git reset HEAD`; delete `generate_adventure.py`, `notes.md`, `poll_comfyui.py`, `probe_cfg.py`, `probe_step_time.py`, `r2v_generate.py`. Keep `run.ps1` + `docs/NOTE.md`.
 2. **Harden `run.ps1`:** Drop `mise self-update -y`, `--disable-pinned-memory`, `-NoMemoryTuning`; default `-OutputDir "E:\ComfyUI\output"`, Manager ON (`-NoManager`), Preview ON (`-NoPreview`), `.venv\.req_hash` gate (`-ForceSync`), keep `PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"`.
 3. **Verify service:** Parse-check `run.ps1`, start in Windows `tmux`, verify `:8188/system_stats` locally and from MacMini (`http://100.70.219.30:8188`), verify `E:\ComfyUI\output` created.
-4. **Configure shared MCP:** Add `"comfyui"` (`npx -y comfyui-mcp`, `exposure: "deferred"`, `COMFYUI_URL: "http://100.70.219.30:8188"`) to `~/dotfiles/pi/agent/mcp.json`; verify `pi mcp list` on Windows and MacMini. (If `HTTP_PROXY` is ever re-enabled on Windows, add `100.70.219.30` to `NO_PROXY`.)
+4. **Configure shared MCP:** Add `"comfyui"` (`bunx comfyui-mcp`, `exposure: "deferred"`, `COMFYUI_URL: "http://100.70.219.30:8188"`) to `~/dotfiles/pi/agent/mcp.json`; verify `pi mcp list` on Windows and MacMini. (If `HTTP_PROXY` is ever re-enabled on Windows, add `100.70.219.30` to `NO_PROXY`.)
 5. **Commit on `master`:** Stage and commit `run.ps1` and `docs/NOTE.md`.
 
 ---
 
 ## 7. Log
-- **2026-11-24:** Initialized `docs/NOTE.md` from prior session findings (`2026-11-02`, `2026-11-03`, `2026-11-05`); updated with settled `run.ps1` (`tmux`), `E:\ComfyUI\output`, Tailscale `NO_PROXY`, and shared `artokun/comfyui-mcp` (`npx`) MCP plan.
+- **2026-11-24 / 2026-11-25:** Initialized `docs/NOTE.md` from prior session findings (`2026-11-02`, `2026-11-03`, `2026-11-05`); updated with settled `run.ps1` (`tmux`), `E:\ComfyUI\output`, `HKCU\Environment` proxy status, and shared `artokun/comfyui-mcp` (`bunx`) MCP setup.
