@@ -13,6 +13,7 @@ from app.assets.services.path_utils import (
     compute_logical_path,
     get_asset_category_and_relative_path,
     get_backend_system_tags_from_path,
+    get_comfy_models_folders,
     get_known_input_subfolder_tags_from_path,
     get_known_subfolder_tags,
     get_name_and_tags_from_asset_path,
@@ -657,3 +658,21 @@ class TestCachedPrefixMatchers:
                 get_backend_system_tags_from_path(str(old))
 
         assert cached_prefix_matcher.cache_info().misses > misses
+
+
+class TestGetComfyModelsFolders:
+    def test_excludes_non_model_folders_including_download_model_base(self, tmp_path):
+        with patch(
+            "app.assets.services.path_utils.folder_paths.folder_names_and_paths",
+            {
+                "checkpoints": ([str(tmp_path / "checkpoints")], {".safetensors"}),
+                "configs": ([str(tmp_path / "configs")], {".yaml"}),
+                "custom_nodes": ([str(tmp_path / "custom_nodes")], set()),
+                "download_model_base": ([str(tmp_path)], set()),
+            },
+        ):
+            folders = {name: paths for name, paths, _exts in get_comfy_models_folders()}
+            assert "checkpoints" in folders
+            assert "configs" not in folders
+            assert "custom_nodes" not in folders
+            assert "download_model_base" not in folders

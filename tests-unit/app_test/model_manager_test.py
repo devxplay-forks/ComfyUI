@@ -46,6 +46,21 @@ async def test_get_model_folders_includes_registered_extensions(aiohttp_client, 
         # Match-all registrations are exposed honestly, not substituted.
         assert folders['test_match_all']['extensions'] == []
 
+
+async def test_get_model_folders_excludes_download_model_base(aiohttp_client, app, tmp_path):
+    with patch('folder_paths.folder_names_and_paths', {
+        'checkpoints': ([str(tmp_path)], {'.safetensors'}),
+        'download_model_base': ([str(tmp_path)], set()),
+    }):
+        client = await aiohttp_client(app)
+        response = await client.get('/experiment/models')
+
+        assert response.status == 200
+        folders = {f['name']: f for f in await response.json()}
+
+        assert 'checkpoints' in folders
+        assert 'download_model_base' not in folders
+
 async def test_get_model_preview_safetensors(aiohttp_client, app, tmp_path):
     img = Image.new('RGB', (100, 100), 'white')
     img_byte_arr = BytesIO()

@@ -30,7 +30,7 @@ class ModelFileManager:
         @routes.get("/experiment/models")
         async def get_model_folders(request):
             model_types = list(folder_paths.folder_names_and_paths.keys())
-            folder_black_list = ["configs", "custom_nodes"]
+            folder_black_list = ["configs", "custom_nodes", "download_model_base"]
             output_folders: list[dict] = []
             for folder in model_types:
                 if folder in folder_black_list:

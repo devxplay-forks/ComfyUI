@@ -6,7 +6,7 @@ import folder_paths
 from app.assets.helpers import cached_prefix_matcher
 
 
-_NON_MODEL_FOLDER_NAMES = frozenset({"configs", "custom_nodes"})
+_NON_MODEL_FOLDER_NAMES = frozenset({"configs", "custom_nodes", "download_model_base"})
 _KNOWN_SUBFOLDER_TAGS = frozenset({"3d", "pasted", "painter", "threed", "webcam"})
 
 

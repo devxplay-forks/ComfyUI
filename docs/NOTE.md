@@ -11,8 +11,8 @@ Maintained working knowledge for this machine (`C:\Users\payne\github\devxplay-f
 | **GPU** | NVIDIA RTX 4090 (24 GB VRAM, SM 8.9, Driver 621.14) | Supports FP16/BF16/FP8/INT8/NVFP4 via `comfy-kitchen` CUDA backend (`sol_attn`). |
 | **CPU / RAM** | AMD Ryzen 7 3700X (8C/16T), **31.9 GB RAM** | Main constraint for >25 GB models is system RAM headroom, not GPU compute. |
 | **PyTorch / Stack** | Python 3.13 (`mise`), `uv`, PyTorch `2.14.1+cu130`, `comfy-aimdo 0.6.0`, `comfy-kitchen 0.2.42` | `triton`, `sageattention`, `flash_attn`, `xformers` are not installed by default. |
-| **`D:` NVMe (954 GB)** | ADATA SX8200PNP (~205 GB free; `models/` is ~60.5 GB) | Holds repo, `.venv`, config, and **active models**. `comfy-aimdo` uses `fast_disk=True` here. |
-| **`E:` SATA HDD (3.7 TB)** | TOSHIBA MG04ACA400N (~1.8 TB free) | Best target for `--output-directory` (video renders) and archived/cold models via `extra_model_paths.yaml`. |
+| **`D:` NVMe (954 GB)** | ADATA SX8200PNP (~205 GB free; `models/` is ~60.5 GB) | Holds repo, `.venv`, config, and **daily/active models**. Note: `comfy_aimdo.storage.fast_disk` returns `None` (evaluates `False`) on Windows for both `D:` and `E:` unless `--fast-disk` is passed globally; `D:` still benefits from faster NVMe OS I/O. |
+| **`E:` SATA HDD (3.7 TB)** | TOSHIBA MG04ACA400N (~1.8 TB free) | Default `--output-directory` (`E:\ComfyUI\output`) and default new/cold model store via `extra_model_paths.yaml` (`is_default: true`). Both `E:` (`paths[0]`) and `D:` (`paths[1]`) load models; **move** (never copy) promoted models `E:` → `D:` so `E:` does not shadow `D:`. |
 | **`M:` SATA SSD (238 GB)** | Plextor PX-256M6Pro (~237 GB free, empty) | Available as overflow SSD storage if `D:` fills up. |
 
 ### Windows Network / Proxy Gotcha
@@ -30,7 +30,7 @@ Maintained working knowledge for this machine (`C:\Users\payne\github\devxplay-f
   - **Storage split:** Keep `models/`, config, and `temp/` on `D:` NVMe; default `-OutputDir "E:\ComfyUI\output"` (`--output-directory`, created if missing).
   - **Fast restarts:** Remove `mise self-update -y`; hash-check `requirements.txt` (+ `manager_requirements.txt`) against `.venv\.req_hash` and skip `uv pip install` when unchanged (`-ForceSync` to override).
 - **Disproved tuning (`2026-11-03`):**
-  - `--disable-pinned-memory` was A/B tested on 768p×362f and showed **no gain** (`227.4 s/step` vs `~228 s/step` baseline, with `17.5 GB` RAM free). Remove `--disable-pinned-memory` and `-NoMemoryTuning`; leave ComfyUI's default `DynamicVRAM`, `--async-offload`, and `fast_disk` enabled.
+  - `--disable-pinned-memory` was A/B tested on 768p×362f and showed **no gain** (`227.4 s/step` vs `~228 s/step` baseline, with `17.5 GB` RAM free). Remove `--disable-pinned-memory` and `-NoMemoryTuning`; leave ComfyUI's default `DynamicVRAM` and `--async-offload` enabled (note: `comfy_aimdo.storage.fast_disk` returns `None` on Windows; avoid global `--fast-disk` while loading models from `E:` HDD).
 
 ---
 
@@ -87,7 +87,17 @@ Maintained working knowledge for this machine (`C:\Users\payne\github\devxplay-f
 4. **Configure shared MCP:** Add `"comfyui"` (`bunx comfyui-mcp`, `exposure: "deferred"`, `COMFYUI_URL: "http://100.70.219.30:8188"`) to `~/dotfiles/pi/agent/mcp.json`; verify `pi mcp list` on Windows and MacMini. (If `HTTP_PROXY` is ever re-enabled on Windows, add `100.70.219.30` to `NO_PROXY`.)
 5. **Commit on `master`:** Stage and commit `run.ps1` and `docs/NOTE.md`.
 
+## 6a. Dual-Drive `E:` Download/Output + `D:` Daily Models (Implemented 2026-11-27)
+
+- **Verified current state:** `extra_model_paths.yaml` (gitignored) sets `base_path: E:/ComfyUI/` + `is_default: true`, so both `E:` (`paths[0]`) and `D:` (`paths[1]`) load models (`folder_paths.py:460-491`), and `run.ps1` sets `--output-directory E:\ComfyUI\output`.
+- **Verified gap:** Without `download_model_base` registered, ComfyUI-Manager (`model_utils.py:11-14,56`) still downloads `550/569` models to `folder_paths.models_dir` (`D:`) instead of `E:`.
+- **Implemented & verified:**
+  1. `extra_model_paths.yaml`: add `download_model_base: models/` under `e_drive_models:` so `569/569` Manager downloads route to `E:\ComfyUI\models`.
+  2. `app/assets/services/path_utils.py:9` (`_NON_MODEL_FOLDER_NAMES`) and `app/model_manager.py:33` (`folder_black_list`): add `"download_model_base"` so `/experiment/models` and asset scanning do not treat it as an extensionless (`set()`) model bucket.
+  3. Restart ComfyUI via `.\run.ps1` and verify `GET /experiment/models` excludes `download_model_base` while Manager `get_model_dir` resolves `569/569` entries to `E:\ComfyUI\models`.
+
 ---
 
 ## 7. Log
 - **2026-11-24 / 2026-11-25:** Initialized `docs/NOTE.md` from prior session findings (`2026-11-02`, `2026-11-03`, `2026-11-05`); updated with settled `run.ps1` (`tmux`), `E:\ComfyUI\output`, `HKCU\Environment` proxy status, and shared `artokun/comfyui-mcp` (`bunx`) MCP setup.
+- **2026-11-27:** Audited `D:`/`E:` model loading & download behavior (`extra_model_paths.yaml`, `folder_paths.py`, `comfyui_manager` `model_utils.py`, `comfy_aimdo.storage.fast_disk`). Implemented `download_model_base: models/` + exclusions (`app/assets/services/path_utils.py`, `app/model_manager.py`), added unit tests, verified `569/569` Manager routes to `E:`, and restarted `.\run.ps1`.
