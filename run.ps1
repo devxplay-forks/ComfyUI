@@ -3,6 +3,7 @@ param (
     [string]$Listen = "0.0.0.0",
     [string]$PythonVersion = "3.13",
     [string]$OutputDir = "E:\ComfyUI\output",
+    [string]$InputDir = "E:\ComfyUI\input",
     [switch]$NoManager,
     [switch]$NoPreview,
     [switch]$Offline,
@@ -161,9 +162,12 @@ if ($ForceSync -or ($currentHash -ne $expectedHash)) {
 if (-not (Test-Path $OutputDir)) {
     New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
 }
+if (-not (Test-Path $InputDir)) {
+    New-Item -ItemType Directory -Path $InputDir -Force | Out-Null
+}
 $env:PYTORCH_CUDA_ALLOC_CONF = "expandable_segments:True"
 
-$launchArgs = @("main.py", "--listen", $Listen, "--port", $Port, "--output-directory", $OutputDir)
+$launchArgs = @("main.py", "--listen", $Listen, "--port", $Port, "--input-directory", $InputDir, "--output-directory", $OutputDir)
 
 if ($enableManager) {
     $launchArgs += "--enable-manager"
@@ -216,6 +220,7 @@ Write-Host "══════════════════════�
 Write-Host " ComfyUI starting on $Listen`:$Port"                       -ForegroundColor Green
 Write-Host " URL:     http://$Listen`:$Port"                           -ForegroundColor White
 Write-Host " Output:  $OutputDir"                                      -ForegroundColor White
+Write-Host " Input:   $InputDir"                                       -ForegroundColor White
 Write-Host " Python:  $PyVer"
 Write-Host " venv:    $VenvDir"
 if ($enableManager) {
